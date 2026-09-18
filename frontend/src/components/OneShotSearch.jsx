@@ -25,31 +25,26 @@ export default function OneShotSearch({ onSearch, isLoading }) {
 
   return (
     <form onSubmit={handleSubmit}>
-      <div className="highlight-input-group">
-        <input
-          ref={inputRef}
-          type="text"
-          className="highlight-input"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Type District Tehsil Village (e.g. bulandshahr khurja kapna or 14-digit GIS code)..."
-          disabled={isLoading}
-          autoComplete="off"
-          spellCheck="false"
-        />
-        <div className="input-icon-left">
-          <Search size={20} />
+      <div className="search-form-group">
+        <div className="highlight-input-group">
+          <input
+            ref={inputRef}
+            type="text"
+            className="highlight-input"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Type District Tehsil Village (e.g. bulandshahr khurja kapna or 14-digit GIS code)..."
+            disabled={isLoading}
+            autoComplete="off"
+            spellCheck="false"
+          />
+          <div className="input-icon-left">
+            <Search size={20} />
+          </div>
         </div>
         <button
           type="submit"
-          className="split-btn-main"
-          style={{
-            position: 'absolute',
-            right: '6px',
-            padding: '8px 16px',
-            borderRadius: '8px',
-            fontSize: '0.88rem'
-          }}
+          className="search-submit-btn"
           disabled={isLoading}
         >
           <span>{isLoading ? 'Searching...' : 'Search Map'}</span>

@@ -208,6 +208,43 @@ body {
   color: var(--primary);
 }
 
+/* Search Form Button Group */
+.search-form-group {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.search-form-group .highlight-input-group {
+  flex: 1;
+}
+.search-submit-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--primary);
+  color: white;
+  padding: 14px 24px;
+  border-radius: var(--radius-md);
+  font-size: 0.95rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+  white-space: nowrap;
+}
+.search-submit-btn:hover {
+  background: var(--primary-hover);
+}
+.search-submit-btn:active {
+  transform: translateY(1px);
+}
+.search-submit-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
 /* Example suggestions */
 .suggestion-pills {
   display: flex;
@@ -550,6 +587,15 @@ body {
     padding: 16px 12px 32px 12px;
   }
   
+  .search-form-group {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-submit-btn {
+    width: 100%;
+  }
+
   .dropdown-grid {
     grid-template-columns: 1fr;
     gap: 12px;

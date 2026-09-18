@@ -3,22 +3,27 @@ import Navbar from './components/Navbar';
 import OneShotSearch from './components/OneShotSearch';
 import InteractiveSearch from './components/InteractiveSearch';
 import MapViewer from './components/MapViewer';
-import { parseAndFetchOneShot, buildWmsUrl } from './services/api';
+import { parseAndFetchOneShot, buildWmsUrl, fetchDistricts } from './services/api';
 import { generateMapPdf, downloadMapImage } from './services/pdfGenerator';
 import { Zap, Sliders, AlertCircle, Compass } from 'lucide-react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('oneshot'); // 'oneshot' | 'interactive'
+  const [activeTab, setActiveTab] = useState('interactive'); // 'oneshot' | 'interactive'
   const [isLoading, setIsLoading] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [isServerAlive, setIsServerAlive] = useState(false);
 
   const [villageData, setVillageData] = useState(null);
   const [extent, setExtent] = useState(null);
   const [mapUrl, setMapUrl] = useState('');
 
-  // Initial load with default village: bulandshahr khurja kapna
+  // Initial load: check server and default village
   useEffect(() => {
+    fetchDistricts()
+      .then(() => setIsServerAlive(true))
+      .catch(() => setIsServerAlive(false));
+
     handleOneShotSearch('bulandshahr khurja kapna');
   }, []);
 
@@ -80,20 +85,11 @@ export default function App() {
   return (
     <div className="app-container">
       {/* Navbar Header */}
-      <Navbar />
+      <Navbar isServerAlive={isServerAlive} />
 
       {/* Mode Switcher Tabs */}
       <div className="tab-container">
         <div className="tabs">
-          <button
-            type="button"
-            className={`tab-btn ${activeTab === 'oneshot' ? 'active' : ''}`}
-            onClick={() => setActiveTab('oneshot')}
-          >
-            <Zap size={16} />
-            <span>One-Shot Search</span>
-          </button>
-          
           <button
             type="button"
             className={`tab-btn ${activeTab === 'interactive' ? 'active' : ''}`}
@@ -101,6 +97,15 @@ export default function App() {
           >
             <Sliders size={16} />
             <span>Interactive Mode</span>
+          </button>
+          
+          <button
+            type="button"
+            className={`tab-btn ${activeTab === 'oneshot' ? 'active' : ''}`}
+            onClick={() => setActiveTab('oneshot')}
+          >
+            <Zap size={16} />
+            <span>One-Shot Search</span>
           </button>
         </div>
       </div>

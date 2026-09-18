@@ -179,8 +179,7 @@ export default function InteractiveSearch({ onSelectVillage, isLoading }) {
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4px' }}>
         <button
           type="button"
-          className="split-btn-main"
-          style={{ borderRadius: '8px' }}
+          className="search-submit-btn"
           onClick={handleFetch}
           disabled={isLoading || !selectedVillage}
         >
