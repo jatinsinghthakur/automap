@@ -1,6 +1,6 @@
 export default async (request, context) => {
   const url = new URL(request.url);
-  const targetUrl = new URL(url.pathname.replace(/^\/bhunakshaserver/, ''), 'https://upbhunaksha.gov.in');
+  const targetUrl = new URL(url.pathname, 'https://upbhunaksha.gov.in');
   targetUrl.search = url.search;
 
   const headers = new Headers(request.headers);

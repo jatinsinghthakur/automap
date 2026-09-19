@@ -127,18 +127,9 @@ export function normSound(s) {
 
 // Masterdata API Calls
 export async function fetchDistricts() {
-  const params = new URLSearchParams({ level: '1', codes: '' });
-  const res = await fetch('/bhunakshaserver/masterdata/levelvalue', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: params
-  });
-  if (!res.ok) throw new Error('Failed to load districts from UP BhuNaksha');
-  const list = await res.json();
-  return list.map(item => {
-    const code = item.code;
-    const eng = DISTRICTS_MAP[code] ? DISTRICTS_MAP[code][0] : item.value;
-    const hin = DISTRICTS_MAP[code] ? DISTRICTS_MAP[code][1] : item.value;
+  // Use the hardcoded DISTRICTS_MAP directly instead of relying on the API,
+  // which sometimes fails or blocks requests for level 1.
+  return Object.entries(DISTRICTS_MAP).map(([code, [eng, hin]]) => {
     return { code, eng, hin, display: `${eng} (${hin})` };
   }).sort((a, b) => a.eng.localeCompare(b.eng));
 }
