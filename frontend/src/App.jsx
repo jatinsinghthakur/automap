@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from './components/Navbar';
-import OneShotSearch from './components/OneShotSearch';
 import InteractiveSearch from './components/InteractiveSearch';
 import MapViewer from './components/MapViewer';
-import { parseAndFetchOneShot, buildWmsUrl, fetchDistricts } from './services/api';
+import { buildWmsUrl, fetchDistricts, fetchVillageExtent } from './services/api';
 import { generateMapPdf, downloadMapImage } from './services/pdfGenerator';
-import { Zap, Sliders, AlertCircle, Compass } from 'lucide-react';
+import { AlertCircle, Compass } from 'lucide-react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('interactive'); // 'oneshot' | 'interactive'
   const [isLoading, setIsLoading] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -18,36 +16,38 @@ export default function App() {
   const [extent, setExtent] = useState(null);
   const [mapUrl, setMapUrl] = useState('');
 
-  // Initial load: check server and default village
+  // Initial load: check server and load placeholder map
   useEffect(() => {
     fetchDistricts()
       .then(() => setIsServerAlive(true))
       .catch(() => setIsServerAlive(false));
 
-    handleOneShotSearch('bulandshahr khurja kapna');
+    const loadDefaultMap = async () => {
+      setIsLoading(true);
+      try {
+        const ext = await fetchVillageExtent('142', '00751', '121500');
+        const url = buildWmsUrl(ext, 2200);
+        setVillageData({
+          distCode: '142',
+          tehsilCode: '00751',
+          villageCode: '121500',
+          districtName: 'Bulandshahr (बुलन्द शहर)',
+          tehsilName: 'Khurja',
+          villageName: 'Kapna'
+        });
+        setExtent(ext);
+        setMapUrl(url);
+      } catch (err) {
+        console.error('Failed to load default map:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadDefaultMap();
   }, []);
 
-  // Clear any residual error messages when switching modes
-  useEffect(() => {
-    setErrorMessage('');
-  }, [activeTab]);
 
-  const handleOneShotSearch = async (query) => {
-    setIsLoading(true);
-    setErrorMessage('');
-    try {
-      const result = await parseAndFetchOneShot(query);
-      const url = buildWmsUrl(result.extent, 2200); // 2200px gives large, readable numbers
-      setVillageData(result);
-      setExtent(result.extent);
-      setMapUrl(url);
-    } catch (err) {
-      console.error(err);
-      setErrorMessage(err.message || 'Error resolving query or fetching map');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleInteractiveSelect = (result) => {
     setIsLoading(true);
@@ -87,36 +87,9 @@ export default function App() {
       {/* Navbar Header */}
       <Navbar isServerAlive={isServerAlive} />
 
-      {/* Mode Switcher Tabs */}
-      <div className="tab-container">
-        <div className="tabs">
-          <button
-            type="button"
-            className={`tab-btn ${activeTab === 'interactive' ? 'active' : ''}`}
-            onClick={() => setActiveTab('interactive')}
-          >
-            <Sliders size={16} />
-            <span>Interactive Mode</span>
-          </button>
-          
-          <button
-            type="button"
-            className={`tab-btn ${activeTab === 'oneshot' ? 'active' : ''}`}
-            onClick={() => setActiveTab('oneshot')}
-          >
-            <Zap size={16} />
-            <span>One-Shot Search</span>
-          </button>
-        </div>
-      </div>
-
       {/* Search Input Card */}
       <div className="search-card">
-        {activeTab === 'oneshot' ? (
-          <OneShotSearch onSearch={handleOneShotSearch} isLoading={isLoading} />
-        ) : (
-          <InteractiveSearch onSelectVillage={handleInteractiveSelect} isLoading={isLoading} />
-        )}
+        <InteractiveSearch onSelectVillage={handleInteractiveSelect} isLoading={isLoading} />
       </div>
 
       {/* Error Banner */}
@@ -158,7 +131,7 @@ export default function App() {
           <Compass size={48} strokeWidth={1.5} color="#94a3b8" />
           <p style={{ fontWeight: 500 }}>No village map loaded yet</p>
           <p style={{ fontSize: '0.85rem' }}>
-            Enter District, Tehsil, and Village above or switch to Interactive Mode.
+            Select a District, Tehsil, and Village above to fetch the map.
           </p>
         </div>
       )}
