@@ -60,6 +60,16 @@ export default function App() {
       setVillageData(result);
       setExtent(result.extent);
       setMapUrl(url);
+
+      // Auto-scroll on mobile devices after fetch resolves
+      if (window.innerWidth <= 768) {
+        setTimeout(() => {
+          const mapEl = document.querySelector('.map-view-wrapper');
+          if (mapEl) {
+            mapEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 100);
+      }
     } catch (err) {
       setErrorMessage(err.message || 'Failed to render map');
     } finally {

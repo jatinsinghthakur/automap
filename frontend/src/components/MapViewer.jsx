@@ -158,7 +158,10 @@ export default function MapViewer({
     if (e.touches.length < 2) {
       setPinchStart({ dist: 0, scale: 1, pos: {x:0, y:0}, dx: 0, dy: 0 });
     }
-    if (e.touches.length === 0) {
+    if (e.touches.length === 1) {
+      setIsDragging(true);
+      setDragStart({ x: e.touches[0].clientX - positionRef.current.x, y: e.touches[0].clientY - positionRef.current.y });
+    } else if (e.touches.length === 0) {
       setIsDragging(false);
     }
   };
