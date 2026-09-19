@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import Navbar from './components/Navbar';
 import InteractiveSearch from './components/InteractiveSearch';
 import MapViewer from './components/MapViewer';
-import { buildWmsUrl, fetchDistricts, fetchVillageExtent } from './services/api';
+import PlotSidebar from './components/PlotSidebar';
+import { buildWmsUrl, fetchDistricts, fetchVillageExtent, fetchPlotInfo } from './services/api';
 import { generateMapPdf, downloadMapImage } from './services/pdfGenerator';
 import { AlertCircle, Compass } from 'lucide-react';
 
@@ -15,6 +16,7 @@ export default function App() {
   const [villageData, setVillageData] = useState(null);
   const [extent, setExtent] = useState(null);
   const [mapUrl, setMapUrl] = useState('');
+  const [selectedPlot, setSelectedPlot] = useState(null);
 
   // Initial load: check server and load placeholder map
   useEffect(() => {
@@ -52,6 +54,7 @@ export default function App() {
   const handleInteractiveSelect = (result) => {
     setIsLoading(true);
     setErrorMessage('');
+    setSelectedPlot(null); // Clear sidebar on new search
     try {
       const url = buildWmsUrl(result.extent, 2200);
       setVillageData(result);
@@ -61,6 +64,21 @@ export default function App() {
       setErrorMessage(err.message || 'Failed to render map');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleMapClick = async (geoX, geoY) => {
+    if (!extent) return;
+    
+    // Set loading state in sidebar
+    setSelectedPlot({ isLoading: true });
+    
+    try {
+      const info = await fetchPlotInfo(extent.gisCode, geoX, geoY);
+      setSelectedPlot(info);
+    } catch (err) {
+      console.error('Plot fetch error:', err);
+      setSelectedPlot({ error: err.message || 'Failed to fetch plot details.' });
     }
   };
 
@@ -115,14 +133,24 @@ export default function App() {
 
       {/* Map Display & Download Action Card */}
       {!isLoading && mapUrl && villageData && extent && (
-        <MapViewer
-          mapUrl={mapUrl}
-          villageData={villageData}
-          extent={extent}
-          onDownloadPdf={handleDownloadPdf}
-          onDownloadImage={handleDownloadImage}
-          isDownloading={isDownloading}
-        />
+        <div className={`map-view-wrapper ${selectedPlot ? 'sidebar-open' : ''}`}>
+          <MapViewer
+            mapUrl={mapUrl}
+            villageData={villageData}
+            extent={extent}
+            selectedPlot={selectedPlot}
+            onDownloadPdf={handleDownloadPdf}
+            onDownloadImage={handleDownloadImage}
+            isDownloading={isDownloading}
+            onMapClick={handleMapClick}
+          />
+          <PlotSidebar 
+            plotInfo={selectedPlot} 
+            villageData={villageData}
+            extent={extent}
+            onClose={() => setSelectedPlot(null)} 
+          />
+        </div>
       )}
 
       {/* Empty State when no map is loaded */}

@@ -1,19 +1,22 @@
 import React, { useState, useRef, useEffect } from 'react';
 import DownloadSplitButton from './DownloadSplitButton';
 import { ZoomIn, ZoomOut, RotateCcw, Maximize2, MapPin, Hash, Globe } from 'lucide-react';
+import { buildPlotOverlayWmsUrl } from '../services/api';
 
 export default function MapViewer({
   mapUrl,
   villageData,
   extent,
+  selectedPlot,
   onDownloadPdf,
   onDownloadImage,
-  isDownloading
+  isDownloading,
+  onMapClick
 }) {
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0, mouseX: 0, mouseY: 0 });
   const [pinchStart, setPinchStart] = useState({ dist: 0, scale: 1, pos: {x:0, y:0}, dx: 0, dy: 0 });
   const viewportRef = useRef(null);
 
@@ -22,13 +25,17 @@ export default function MapViewer({
   scaleRef.current = scale;
   positionRef.current = position;
 
+  const overlayUrl = (selectedPlot?.plotId && extent && !selectedPlot.isLoading && !selectedPlot.error && !selectedPlot.notFound)
+    ? buildPlotOverlayWmsUrl(extent, selectedPlot.plotId, 2200)
+    : null;
+
   useEffect(() => {
     const el = viewportRef.current;
     if (!el) return;
     const handleWheel = (e) => {
       e.preventDefault();
       const oldScale = scaleRef.current;
-      const newScale = Math.min(Math.max(oldScale - (e.deltaY * 0.002), 0.5), 4);
+      const newScale = Math.min(Math.max(oldScale - (e.deltaY * 0.002), 0.5), window.innerWidth <= 768 ? 8 : 4);
       
       if (newScale !== oldScale) {
         const rect = el.getBoundingClientRect();
@@ -49,7 +56,7 @@ export default function MapViewer({
 
   const handleZoom = (delta) => {
     const oldScale = scaleRef.current;
-    const newScale = Math.min(Math.max(oldScale + delta, 0.5), 4);
+    const newScale = Math.min(Math.max(oldScale + delta, 0.5), window.innerWidth <= 768 ? 8 : 4);
     if (newScale !== oldScale) {
       const ratio = newScale / oldScale;
       const newX = 0 - (0 - positionRef.current.x) * ratio;
@@ -68,7 +75,12 @@ export default function MapViewer({
 
   const handleMouseDown = (e) => {
     setIsDragging(true);
-    setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
+    setDragStart({ 
+      x: e.clientX - position.x, 
+      y: e.clientY - position.y,
+      mouseX: e.clientX,
+      mouseY: e.clientY
+    });
   };
 
   const handleMouseMove = (e) => {
@@ -118,7 +130,7 @@ export default function MapViewer({
     if (e.touches.length === 2 && pinchStart.dist > 0) {
       const currentDist = getPinchDist(e.touches);
       const ratio = currentDist / pinchStart.dist;
-      const newScale = Math.min(Math.max(pinchStart.scale * ratio, 0.5), 4);
+      const newScale = Math.min(Math.max(pinchStart.scale * ratio, 0.5), 8);
       
       const actualRatio = newScale / pinchStart.scale;
       const newX = pinchStart.dx - (pinchStart.dx - pinchStart.pos.x) * actualRatio;
@@ -152,12 +164,36 @@ export default function MapViewer({
   };
 
   const toggleFullscreen = () => {
-    if (!viewportRef.current) return;
+    const target = document.querySelector('.map-view-wrapper') || viewportRef.current;
+    if (!target) return;
     if (!document.fullscreenElement) {
-      viewportRef.current.requestFullscreen().catch(err => console.log(err));
+      target.requestFullscreen().catch(err => console.log(err));
     } else {
       document.exitFullscreen();
     }
+  };
+
+  const handleImageClick = (e) => {
+    if (Math.abs(e.clientX - dragStart.mouseX) > 5) return;
+    if (Math.abs(e.clientY - dragStart.mouseY) > 5) return;
+    if (!onMapClick || !extent) return;
+
+    const img = e.target;
+    const rect = img.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    
+    // Normalized proportion (0.0 to 1.0) of click position within the displayed image
+    const normX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const normY = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+
+    const dx = extent.xmax - extent.xmin;
+    const dy = extent.ymax - extent.ymin;
+    
+    const geoX = extent.xmin + normX * dx;
+    // Geographical Y coordinate goes from bottom (ymin) to top (ymax), while image pixels go top to bottom
+    const geoY = extent.ymax - normY * dy;
+    
+    onMapClick(geoX, geoY);
   };
 
   return (
@@ -223,17 +259,48 @@ export default function MapViewer({
           </button>
         </div>
 
-        {/* Map Image */}
-        <img
-          src={mapUrl}
-          alt={`Cadastral map of ${villageData.villageName}`}
-          className="map-img"
+        {/* Map Image and Plot Selection Overlay */}
+        <div
+          className="map-transform-wrapper"
           style={{
             transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
-            cursor: isDragging ? 'grabbing' : 'grab'
+            position: 'relative',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            lineHeight: 0
           }}
-          draggable="false"
-        />
+        >
+          <img
+            src={mapUrl}
+            alt={`Cadastral map of ${villageData.villageName}`}
+            className="map-img"
+            style={{
+              cursor: isDragging ? 'grabbing' : 'crosshair',
+              display: 'block'
+            }}
+            draggable="false"
+            onClick={handleImageClick}
+          />
+          {overlayUrl && (
+            <img
+              key={overlayUrl}
+              src={overlayUrl}
+              alt="Selected Plot Green Overlay"
+              className="map-plot-overlay"
+              draggable="false"
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                pointerEvents: 'none',
+                display: 'block'
+              }}
+            />
+          )}
+        </div>
       </div>
     </div>
   );

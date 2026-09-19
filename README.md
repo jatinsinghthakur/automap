@@ -76,21 +76,20 @@ python bot.py --list-tehsils "Bulandshahr"
 python bot.py --list-villages "Bulandshahr" "Khurja"
 ```
 
-### Advanced Options
-- `--width` (`-w`): Control the output image width. Default is `2200` for large readable numbers. Set it to `4000` or `8000` for massive posters.
-- `--outdir` (`-o`): Specify the directory to save the downloaded maps.
+### Advanced Options & Plot Reports
+- `--report <number>`: Fetch official khata details, khasra subdivisions, land owners, and mutation orders for the given plot number and download a print-ready Plot Cadastral Report PDF matching the frontend design.
+- `--outdir` (`-o`): Specify the directory to save the downloaded maps and reports (default: `output`, automatically created).
+- `--width` (`-w`): Control the output map image width. Default is `2200` for large readable numbers. Set it to `4000` or `8000` for massive posters.
+
+**Example: Download village map and full plot report:**
+```bash
+python bot.py "bulandshahr khurja kapna" --report 807
+```
+*(This downloads both the village cadastral map PNG/PDF and the official `Plot_Report_807_<village>.pdf` into the `output/` folder!)*
 
 **Example of an advanced command:**
 ```bash
-python bot.py "agra fatehabad" --width 3500 -o ./my_maps
+python bot.py "agra fatehabad" --width 3500 -o output --report 125
 ```
 *(Notice how the village is missing? The bot will intelligently pause and ask you to select a village before continuing!)*
 
----
-
-## 💉 3. Browser Injection Script (`injection_script.js`)
-If you are already directly browsing the official UP BhuNaksha website and find a map you like, you don't even need to use the tools above.
-1. Copy the contents of `injection_script.js`.
-2. Open your Browser Developer Tools (F12) -> Console.
-3. Paste the script and hit Enter.
-4. The script will intercept the current map view on your screen and force the server to download it as a high-resolution 2200px map instead of the default blurry version.

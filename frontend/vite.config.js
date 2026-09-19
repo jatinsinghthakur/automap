@@ -17,6 +17,8 @@ const bhuNakshaProxyPlugin = () => ({
           ? req.url 
           : `/bhunakshaserver${req.url.startsWith('/') ? '' : '/'}${req.url}`
 
+        console.log(`[BhuNaksha Proxy] ${req.method} ${subPath} (${body.length} bytes)`)
+
         const proxyHeaders = {
           'host': 'upbhunaksha.gov.in',
           'origin': 'https://upbhunaksha.gov.in',
@@ -34,8 +36,13 @@ const bhuNakshaProxyPlugin = () => ({
           path: subPath,
           method: req.method,
           family: 4,
+          minVersion: 'TLSv1.2',
+          maxVersion: 'TLSv1.2',
+          ciphers: 'DEFAULT@SECLEVEL=1',
+          rejectUnauthorized: false,
           headers: proxyHeaders
         }, (proxyRes) => {
+          console.log(`[BhuNaksha Proxy Resp] ${proxyRes.statusCode} for ${subPath}`)
           res.writeHead(proxyRes.statusCode, proxyRes.headers)
           proxyRes.pipe(res)
         })

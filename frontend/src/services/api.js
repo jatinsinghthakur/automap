@@ -229,6 +229,34 @@ export function buildWmsUrl(info, width = 2200) {
   return `/bhunakshaserver/WMS?${params.toString()}`;
 }
 
+// Construct Plot Selection Overlay WMS URL
+export function buildPlotOverlayWmsUrl(info, plotId, width = 2200) {
+  if (!info || !plotId) return null;
+  const dx = info.xmax - info.xmin;
+  const dy = info.ymax - info.ymin;
+  const height = Math.round(width * (dy / dx));
+
+  const params = new URLSearchParams({
+    SERVICE: 'WMS',
+    VERSION: '1.3.0',
+    REQUEST: 'GetMap',
+    FORMAT: 'image/png',
+    TRANSPARENT: 'TRUE',
+    LAYERS: 'PLOT_LIST',
+    STYLES: 'PLOT_SELECTION',
+    CRS: info.crs || 'EPSG:32644',
+    gis_code: info.gisCode,
+    overlay_codes: '',
+    plot_id: plotId,
+    state: '',
+    BBOX: `${info.xmin},${info.ymin},${info.xmax},${info.ymax}`,
+    WIDTH: String(width),
+    HEIGHT: String(height)
+  });
+
+  return `/bhunakshaserver/WMS?${params.toString()}`;
+}
+
 // Name Resolvers
 export function resolveDistrictName(query) {
   const q = query.trim().toLowerCase();
@@ -408,3 +436,232 @@ export async function parseAndFetchOneShot(rawQuery) {
     extent
   };
 }
+
+// Parse raw text returned by UP BhuNaksha getPlotInfo
+export function parsePlotInfoText(rawText, fallbackPlotNo) {
+  if (!rawText || !rawText.trim()) {
+    return {
+      plotNo: fallbackPlotNo,
+      khataNo: '---',
+      areaHectare: '---',
+      areaAcre: '---',
+      areaSqMt: '---',
+      khatas: [],
+      owners: [],
+      orders: [],
+      rawText: rawText || ''
+    };
+  }
+
+  const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  
+  const khatas = [];
+  const owners = [];
+  const orders = [];
+
+  let currentSection = null;
+  let currentKhataForSection = null;
+
+  for (const line of lines) {
+    // Match Khata / Plot / Area line: e.g. "Khata No: 00675   Plot No: 305    Area : 0.3410 Hectare"
+    const khataMatch = line.match(/Khata\s*No:\s*([^\s]+)\s+Plot\s*No:\s*([^\s]+)\s+Area\s*:\s*([0-9.]+)\s*Hectare/i);
+    if (khataMatch) {
+      const areaHectare = parseFloat(khataMatch[3]);
+      khatas.push({
+        khataNo: khataMatch[1],
+        plotNo: khataMatch[2],
+        areaHectare: khataMatch[3],
+        areaAcre: (areaHectare * 2.47105).toFixed(4),
+        areaSqMt: (areaHectare * 10000).toLocaleString('en-IN')
+      });
+      continue;
+    }
+
+    // Match Section Headers
+    const ownerSectionMatch = line.match(/Owner\s*Details\s*For\s*Khata\s*No\.?:-?\s*([^\s]+)/i);
+    if (ownerSectionMatch) {
+      currentSection = 'owners';
+      currentKhataForSection = ownerSectionMatch[1];
+      continue;
+    }
+
+    const orderSectionMatch = line.match(/Order\s*Description\s*For\s*Khata\s*No\.?:-?\s*([^\s]+)/i);
+    if (orderSectionMatch) {
+      currentSection = 'orders';
+      currentKhataForSection = orderSectionMatch[1];
+      continue;
+    }
+
+    // Parse Owner Line: e.g. "1 :-  नाम :   बंजर     संरक्षक का नाम : ---     निवास स्थान : नि.ग्राम"
+    if (currentSection === 'owners') {
+      const oMatch = line.match(/(\d+)\s*:-\s*नाम\s*:\s*(.*?)\s+संरक्षक\s*का\s*नाम\s*:\s*(.*?)\s+निवास\s*स्थान\s*:\s*(.*)/);
+      if (oMatch) {
+        owners.push({
+          khataNo: currentKhataForSection,
+          serial: oMatch[1],
+          name: oMatch[2].trim(),
+          guardian: oMatch[3].trim() === '---' ? '' : oMatch[3].trim(),
+          residence: oMatch[4].trim()
+        });
+        continue;
+      }
+    }
+
+    // Parse Order Line: e.g. "1 : 1428फ0- आदेशानुसार श्रीमान तहसीलदार..."
+    if (currentSection === 'orders') {
+      const ordMatch = line.match(/^(\d+)\s*:\s*(.*)/);
+      if (ordMatch) {
+        orders.push({
+          khataNo: currentKhataForSection,
+          serial: ordMatch[1],
+          text: ordMatch[2].trim()
+        });
+        continue;
+      } else if (orders.length > 0) {
+        orders[orders.length - 1].text += ' ' + line;
+        continue;
+      }
+    }
+  }
+
+  // Determine basePlotNo (e.g. '807' instead of '807मि')
+  let basePlotNo = null;
+  const pureNumericKhata = khatas.find(k => /^\d+$/.test(k.plotNo));
+  if (pureNumericKhata) {
+    basePlotNo = pureNumericKhata.plotNo;
+  } else {
+    const rawCand = fallbackPlotNo || khatas[0]?.plotNo || '';
+    basePlotNo = rawCand.replace(/(मि|mi|\/.*|\..*)$/i, '').trim();
+    if (!basePlotNo) basePlotNo = rawCand;
+  }
+
+  // Sort khatas so primary/base plot (e.g. 807) comes first before minjumla/subdivisions (807मि)
+  khatas.sort((a, b) => {
+    if (a.plotNo === basePlotNo) return -1;
+    if (b.plotNo === basePlotNo) return 1;
+    return a.plotNo.localeCompare(b.plotNo);
+  });
+
+  // Group owners and orders under their respective subdivisions/khatas
+  const subdivisions = khatas.map(k => {
+    const subOwners = owners.filter(o => o.khataNo === k.khataNo);
+    const subOrders = orders.filter(ord => ord.khataNo === k.khataNo);
+    return {
+      khasraNo: k.plotNo,
+      khataNo: k.khataNo,
+      areaHectare: k.areaHectare,
+      areaAcre: k.areaAcre,
+      areaSqMt: k.areaSqMt,
+      owners: subOwners.length > 0 ? subOwners : owners, // Fallback if single khata without header match
+      orders: subOrders
+    };
+  });
+
+  const totalAreaHectare = khatas.reduce((acc, k) => acc + (parseFloat(k.areaHectare) || 0), 0);
+  const primaryKhataNo = khatas.map(k => k.khataNo).join(', ') || '---';
+
+  return {
+    basePlotNo,
+    plotNo: basePlotNo,
+    khataNo: primaryKhataNo,
+    areaHectare: totalAreaHectare ? totalAreaHectare.toFixed(4) : (khatas[0]?.areaHectare || '---'),
+    areaAcre: totalAreaHectare ? (totalAreaHectare * 2.47105).toFixed(4) : '---',
+    areaSqMt: totalAreaHectare ? (totalAreaHectare * 10000).toLocaleString('en-IN') : '---',
+    khatas,
+    subdivisions,
+    owners,
+    orders,
+    rawText
+  };
+}
+
+// Fetch Plot Information using authentic UP BhuNaksha GeoServer endpoints
+export async function fetchPlotInfo(gisCode, geoX, geoY) {
+  // 1. Identify which plot was clicked using /MapInfo/getPlotAtXY
+  const xyParams = new URLSearchParams({
+    giscode: gisCode,
+    x: String(geoX),
+    y: String(geoY),
+    plotno: ''
+  });
+
+  const xyRes = await fetch('/bhunakshaserver/MapInfo/getPlotAtXY', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: xyParams
+  });
+
+  if (!xyRes.ok) {
+    throw new Error(`Server returned ${xyRes.status} when locating plot coordinates`);
+  }
+
+  const plotData = await xyRes.json();
+  if (!plotData || !plotData.kide) {
+    return {
+      notFound: true,
+      geoX,
+      geoY,
+      message: 'No plot found at this location. Try clicking inside a marked plot boundary.'
+    };
+  }
+
+  const plotNo = plotData.kide;
+
+  // 2. Fetch full land record / ROR details using /MapInfo/getPlotInfo
+  const infoRes = await fetch('/bhunakshaserver/MapInfo/getPlotInfo', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      gisCode: gisCode,
+      plotNo: String(plotNo)
+    })
+  });
+
+  let rawText = '';
+  if (infoRes.ok) {
+    rawText = await infoRes.text();
+  }
+
+  // 3. Parse and structure the response
+  const parsed = parsePlotInfoText(rawText, plotNo);
+
+  return {
+    ...parsed,
+    gisCode,
+    plotId: plotData.id,
+    bbox: {
+      minx: plotData.minx,
+      miny: plotData.miny,
+      maxx: plotData.maxx,
+      maxy: plotData.maxy
+    },
+    geoX,
+    geoY
+  };
+}
+
+// Fetch Plot Information directly by Plot / Khasra Number
+export async function fetchPlotInfoByPlotNo(gisCode, plotNo) {
+  const infoRes = await fetch('/bhunakshaserver/MapInfo/getPlotInfo', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      gisCode: gisCode,
+      plotNo: String(plotNo)
+    })
+  });
+
+  if (!infoRes.ok) {
+    throw new Error(`Server returned ${infoRes.status} when fetching plot ${plotNo}`);
+  }
+
+  const rawText = await infoRes.text();
+  const parsed = parsePlotInfoText(rawText, plotNo);
+
+  return {
+    ...parsed,
+    gisCode,
+    plotNo
+  };
+}
+

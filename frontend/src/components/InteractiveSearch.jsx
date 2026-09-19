@@ -174,18 +174,20 @@ export default function InteractiveSearch({ onSelectVillage, isLoading }) {
             </div>
           </div>
         </div>
-      </div>
-
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4px' }}>
-        <button
-          type="button"
-          className="search-submit-btn"
-          onClick={handleFetch}
-          disabled={isLoading || !selectedVillage}
-        >
-          <span>{isLoading ? 'Loading Map...' : 'Fetch Selected Village'}</span>
-          <ArrowRight size={16} />
-        </button>
+        
+        {/* Action Button */}
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', height: '100%' }}>
+          <button
+            type="button"
+            className="search-submit-btn"
+            onClick={handleFetch}
+            disabled={isLoading || !selectedVillage}
+            style={{ height: '46px', padding: '0 24px' }} /* Fixed height to match dropdowns */
+          >
+            <span>{isLoading ? 'Loading...' : 'Fetch'}</span>
+            <ArrowRight size={16} />
+          </button>
+        </div>
       </div>
     </div>
   );
