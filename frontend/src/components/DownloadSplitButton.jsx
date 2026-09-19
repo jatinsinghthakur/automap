@@ -38,7 +38,7 @@ export default function DownloadSplitButton({ onDownloadPdf, onDownloadImage, is
         title="Download high-resolution print-ready PDF"
       >
         <Download size={17} />
-        <span>{isDownloading ? 'Preparing...' : 'Download'}</span>
+        <span>{isDownloading ? 'Preparing...' : 'Download Map'}</span>
       </button>
 
       {/* Arrow button: opens dropdown menu */}

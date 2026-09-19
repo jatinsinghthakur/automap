@@ -1558,3 +1558,20 @@ html.sidebar-resizing .map-view-wrapper .map-card {
     display: none;
   }
 }
+
+/* Mobile Optimizations for Header and Buttons */
+@media (max-width: 768px) {
+  .connection-text {
+    display: none !important;
+  }
+  .logo-tag {
+    display: none !important;
+  }
+  .hide-on-mobile {
+    display: none !important;
+  }
+  .split-btn-main {
+    font-size: 0.8rem;
+    padding: 6px 10px;
+  }
+}

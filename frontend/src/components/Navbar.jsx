@@ -22,7 +22,7 @@ export default function Navbar({ isServerAlive }) {
           display: 'inline-block',
           transition: 'background 0.3s ease'
         }}></span>
-        <span style={{ fontWeight: 600 }}>
+        <span className="connection-text" style={{ fontWeight: 600 }}>
           {isServerAlive ? 'Server Connected' : 'Server Offline'}
         </span>
       </div>
